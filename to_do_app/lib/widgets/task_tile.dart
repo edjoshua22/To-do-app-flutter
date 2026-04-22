@@ -6,8 +6,10 @@ import 'package:google_fonts/google_fonts.dart';
 class TaskTile extends StatefulWidget {
   final Task task;
   final VoidCallback onToggle;
+  final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
 
-  const TaskTile({super.key, required this.task, required this.onToggle});
+  const TaskTile({super.key, required this.task, required this.onToggle, this.onEdit, this.onDelete});
 
   @override
   State<TaskTile> createState() => _TaskTileState();
@@ -137,14 +139,22 @@ class _TaskTileState extends State<TaskTile>
                       ),
                     ),
                   if (!task.isCompleted)
-                    Text(
-                      'Edit',
-                      style: GoogleFonts.inter(
-                        fontSize: 12,
-                        color: AppColors.secondary,
-                        fontWeight: FontWeight.w400,
+                    GestureDetector(
+                      onTap: widget.onEdit,
+                      behavior: HitTestBehavior.opaque,
+                      child: Padding(
+                        padding: const EdgeInsets.only(left: 8.0),
+                        child: Text(
+                          'Edit',
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            color: AppColors.secondary,
+                            fontWeight: FontWeight.w400,
+                          ),
+                        ),
                       ),
                     ),
+
                 ],
               ),
             ],

@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../models/task_model.dart';
+import '../services/task_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/empty_state_widget.dart';
+import '../widgets/task_list_header.dart';
 import '../widgets/task_tile.dart';
-import '../widgets/week_day_selector.dart';
 import 'add_task_screen.dart';
 
 class TaskListScreen extends StatefulWidget {
@@ -15,27 +17,41 @@ class TaskListScreen extends StatefulWidget {
 }
 
 class _TaskListScreenState extends State<TaskListScreen> {
-  List<Task> tasks = List.from(sampleTasks);
+  final TaskService _taskService = TaskService();
+  List<Task> _tasks = [];
+  bool _isLoading = true;
+  String? _errorMessage;
 
   DateTime _selectedDate = DateTime.now();
 
-  static const List<String> _months = [
-    'JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN',
-    'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'
-  ];
-  
-  static const List<String> _weekdays = [
-    'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'
-  ];
-
-  List<DateTime> get _currentWeek {
-    int weekday = _selectedDate.weekday;
-    DateTime monday = _selectedDate.subtract(Duration(days: weekday - 1));
-    return List.generate(7, (index) => monday.add(Duration(days: index)));
+  @override
+  void initState() {
+    super.initState();
+    _loadTasks();
   }
 
-  String get _formattedHeaderDate {
-    return '${_weekdays[_selectedDate.weekday - 1]}, ${_months[_selectedDate.month - 1]} ${_selectedDate.day}';
+  Future<void> _loadTasks() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final fetchedTasks = await _taskService.getTasks();
+      if (mounted) {
+        setState(() {
+          _tasks = fetchedTasks;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Failed to load tasks: $e';
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   Future<void> _selectDate(BuildContext context) async {
@@ -69,23 +85,82 @@ class _TaskListScreenState extends State<TaskListScreen> {
     }
   }
 
-  void _toggleTask(String id) {
+  Future<void> _toggleTask(Task task) async {
+    final originalState = task.isCompleted;
     setState(() {
-      final idx = tasks.indexWhere((t) => t.id == id);
-      if (idx != -1) tasks[idx].isCompleted = !tasks[idx].isCompleted;
+      task.isCompleted = !task.isCompleted;
     });
+
+    try {
+      await _taskService.updateTask(task);
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          task.isCompleted = originalState;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to update task')),
+        );
+      }
+    }
   }
 
-  Future<void> _openAddTask() async {
+  Future<void> _handleDelete(Task task) async {
+    final index = _tasks.indexOf(task);
+    if (index == -1) return;
+
+    setState(() {
+      _tasks.removeAt(index);
+    });
+
+    try {
+      await _taskService.deleteTask(task.id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).clearSnackBars();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Task deleted'),
+            behavior: SnackBarBehavior.floating,
+            action: SnackBarAction(
+              label: 'Undo',
+              onPressed: () async {
+                setState(() {
+                  if (index > _tasks.length) {
+                    _tasks.add(task);
+                  } else {
+                    _tasks.insert(index, task);
+                  }
+                });
+                await _taskService.addTask(task);
+              },
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _tasks.insert(index, task);
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to delete task')),
+        );
+      }
+    }
+  }
+
+  Future<void> _openAddTask({Task? taskToEdit}) async {
     final result = await Navigator.push<Task>(
       context,
       PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) => const AddTaskScreen(),
+        pageBuilder: (context, animation, secondaryAnimation) =>
+            AddTaskScreen(taskToEdit: taskToEdit, selectedDate: _selectedDate),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           final slide = Tween<Offset>(
             begin: const Offset(0, 1),
             end: Offset.zero,
-          ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic));
+          ).animate(CurvedAnimation(
+              parent: animation, curve: Curves.easeOutCubic));
           return SlideTransition(position: slide, child: child);
         },
         transitionDuration: const Duration(milliseconds: 350),
@@ -93,13 +168,157 @@ class _TaskListScreenState extends State<TaskListScreen> {
     );
 
     if (result != null) {
-      setState(() => tasks.insert(0, result));
+      try {
+        if (taskToEdit != null) {
+          final idx = _tasks.indexWhere((t) => t.id == taskToEdit.id);
+          if (idx != -1) {
+            setState(() {
+              _tasks[idx] = result;
+            });
+            await _taskService.updateTask(result);
+          }
+        } else {
+          setState(() {
+            _tasks.insert(0, result);
+          });
+          await _taskService.addTask(result);
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Failed to save task')),
+          );
+        }
+      }
     }
+  }
+
+  List<Task> get _filteredTasks {
+    return _tasks.where((t) {
+      return t.date.year == _selectedDate.year &&
+             t.date.month == _selectedDate.month &&
+             t.date.day == _selectedDate.day;
+    }).toList();
+  }
+
+  Widget _buildBody() {
+    if (_isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(color: AppColors.accent),
+      );
+    }
+
+    if (_errorMessage != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              _errorMessage!,
+              style: GoogleFonts.inter(color: Colors.redAccent),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: _loadTasks,
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final currentTasks = _filteredTasks;
+
+    if (currentTasks.isEmpty) {
+      return const EmptyStateWidget();
+    }
+
+    return ListView.separated(
+      padding: EdgeInsets.zero,
+      itemCount: currentTasks.length,
+      separatorBuilder: (context, index) => const Divider(
+        height: 1,
+        thickness: 1,
+        indent: 20,
+        endIndent: 20,
+        color: AppColors.divider,
+      ),
+      itemBuilder: (context, i) {
+        final task = currentTasks[i];
+        return Dismissible(
+          key: Key(task.id),
+          direction: DismissDirection.endToStart,
+          background: Container(
+            alignment: Alignment.centerRight,
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            color: Colors.redAccent,
+            child: const Icon(Icons.delete_outline, color: Colors.white, size: 28),
+          ),
+          confirmDismiss: (direction) async {
+            return await showDialog<bool>(
+              context: context,
+              builder: (context) => AlertDialog(
+                backgroundColor: AppColors.card,
+                title: Text(
+                  'Delete Task',
+                  style: GoogleFonts.inter(
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.primary,
+                  ),
+                ),
+                content: Text(
+                  'Are you sure you want to delete this task?',
+                  style: GoogleFonts.inter(
+                    color: AppColors.secondary,
+                    fontSize: 14,
+                  ),
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    child: Text(
+                      'Cancel',
+                      style: GoogleFonts.inter(
+                        color: AppColors.secondary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, true),
+                    child: Text(
+                      'Delete',
+                      style: GoogleFonts.inter(
+                        color: Colors.redAccent,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+          onDismissed: (direction) {
+            _handleDelete(task);
+          },
+          child: TaskTile(
+            task: task,
+            onToggle: () => _toggleTask(task),
+            onEdit: () => _openAddTask(taskToEdit: task),
+          ),
+        );
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final completedCount = tasks.where((t) => t.isCompleted).length;
+    final currentTasks = _filteredTasks;
+    final completedCount = currentTasks.where((t) => t.isCompleted).length;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.dark,
@@ -109,111 +328,18 @@ class _TaskListScreenState extends State<TaskListScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ── Header ──────────────────────────────────────────────────
-              Padding(
-                padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              _formattedHeaderDate,
-                              style: GoogleFonts.inter(
-                                fontSize: 10.5,
-                                letterSpacing: 1.2,
-                                color: AppColors.secondary,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'To-Do List',
-                              style: GoogleFonts.inter(
-                                fontSize: 30,
-                                fontWeight: FontWeight.w800,
-                                color: AppColors.primary,
-                                height: 1.1,
-                              ),
-                            ),
-                          ],
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.only(top: 4),
-                          child: GestureDetector(
-                            onTap: () => _selectDate(context),
-                            child: Container(
-                              width: 42,
-                              height: 42,
-                              decoration: BoxDecoration(
-                                color: AppColors.card,
-                                borderRadius: BorderRadius.circular(14),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.06),
-                                    blurRadius: 10,
-                                    offset: const Offset(0, 4),
-                                  ),
-                                ],
-                              ),
-                              child: const Icon(
-                                Icons.calendar_today_outlined,
-                                size: 18,
-                                color: AppColors.primary,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 6),
-                    Text(
-                      '$completedCount of ${tasks.length} tasks completed',
-                      style: GoogleFonts.inter(
-                        fontSize: 12,
-                        color: AppColors.secondary,
-                        fontWeight: FontWeight.w400,
-                      ),
-                    ),
-
-                    const SizedBox(height: 20),
-
-                    // Progress bar
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: LinearProgressIndicator(
-                        value: tasks.isEmpty ? 0 : completedCount / tasks.length,
-                        backgroundColor: AppColors.divider,
-                        valueColor: const AlwaysStoppedAnimation<Color>(AppColors.accent),
-                        minHeight: 4,
-                      ),
-                    ),
-
-                    const SizedBox(height: 22),
-
-                    // Week Day Selector
-                    WeekDaySelector(
-                      selectedDate: _selectedDate,
-                      currentWeek: _currentWeek,
-                      onDateSelected: (date) {
-                        setState(() {
-                          _selectedDate = date;
-                        });
-                      },
-                    ),
-                  ],
-                ),
+              TaskListHeader(
+                selectedDate: _selectedDate,
+                completedCount: completedCount,
+                totalCount: currentTasks.length,
+                onCalendarTap: () => _selectDate(context),
+                onDateSelected: (date) {
+                  setState(() {
+                    _selectedDate = date;
+                  });
+                },
               ),
-
               const SizedBox(height: 18),
-
-              // ── Task List ────────────────────────────────────────────────
               Expanded(
                 child: Container(
                   margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -230,55 +356,14 @@ class _TaskListScreenState extends State<TaskListScreen> {
                   ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(24),
-                    child: tasks.isEmpty
-                        ? Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.task_rounded,
-                                  size: 48,
-                                  color: AppColors.secondary.withValues(alpha: 0.3),
-                                ),
-                                const SizedBox(height: 16),
-                                Text(
-                                  textAlign: TextAlign.center,
-                                  'Clear day ahead!\nTap + to add a task.',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 14,
-                                    color: AppColors.secondary,
-                                    fontWeight: FontWeight.w500,
-                                    height: 1.4,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          )
-                        : ListView.separated(
-                            padding: EdgeInsets.zero,
-                            itemCount: tasks.length,
-                            separatorBuilder: (context, index) => const Divider(
-                              height: 1,
-                              thickness: 1,
-                              indent: 20,
-                              endIndent: 20,
-                              color: AppColors.divider,
-                            ),
-                            itemBuilder: (context, i) => TaskTile(
-                              task: tasks[i],
-                              onToggle: () => _toggleTask(tasks[i].id),
-                            ),
-                          ),
+                    child: _buildBody(),
                   ),
                 ),
               ),
-
               const SizedBox(height: 24),
             ],
           ),
         ),
-
-        // ── FAB ──────────────────────────────────────────────────────────
         floatingActionButton: GestureDetector(
           onTap: _openAddTask,
           child: Container(

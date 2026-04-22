@@ -5,7 +5,9 @@ import '../models/task_model.dart';
 import '../theme/app_theme.dart';
 
 class AddTaskScreen extends StatefulWidget {
-  const AddTaskScreen({super.key});
+  final Task? taskToEdit;
+  final DateTime selectedDate;
+  const AddTaskScreen({super.key, this.taskToEdit, required this.selectedDate});
 
   @override
   State<AddTaskScreen> createState() => _AddTaskScreenState();
@@ -17,7 +19,7 @@ class _AddTaskScreenState extends State<AddTaskScreen>
   final FocusNode _focusNode = FocusNode();
 
   String _alarm = 'None';
-  String _reminder = '10:00 am';
+  String _reminder = 'None';
   String _priority = 'Low';
 
   late AnimationController _fadeController;
@@ -26,6 +28,13 @@ class _AddTaskScreenState extends State<AddTaskScreen>
   @override
   void initState() {
     super.initState();
+    if (widget.taskToEdit != null) {
+      final t = widget.taskToEdit!;
+      _titleController.text = t.title;
+      _reminder = t.subtitle.isNotEmpty ? t.subtitle : 'None';
+      _alarm = t.hasAlarm ? '10:00 am' : 'None';
+      _priority = t.hasPriority ? 'High' : 'Low';
+    }
     _fadeController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 400),
@@ -57,10 +66,11 @@ class _AddTaskScreenState extends State<AddTaskScreen>
     }
 
     final newTask = Task(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      id: widget.taskToEdit?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
       title: title,
       subtitle: _reminder != 'None' ? _reminder : '',
-      isCompleted: false,
+      date: widget.taskToEdit?.date ?? widget.selectedDate,
+      isCompleted: widget.taskToEdit?.isCompleted ?? false,
       hasAlarm: _alarm != 'None',
       hasPriority: _priority != 'Low',
     );
@@ -109,7 +119,7 @@ class _AddTaskScreenState extends State<AddTaskScreen>
     );
   }
 
-  Widget _buildDivider() => Divider(
+  Widget _buildDivider() => const Divider(
         height: 1,
         thickness: 1,
         indent: 24,
@@ -153,7 +163,7 @@ class _AddTaskScreenState extends State<AddTaskScreen>
     );
   }
 
-  void _showAlarmPicker() {
+  Future<void> _showAlarmPicker() async {
     showModalBottomSheet(
       context: context,
       backgroundColor: AppColors.card,
@@ -164,25 +174,67 @@ class _AddTaskScreenState extends State<AddTaskScreen>
         padding: const EdgeInsets.symmetric(vertical: 24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          children: ['None', '8:00 am', '9:00 am', '10:00 am', '12:00 pm', '3:00 pm'].map((a) {
-            return ListTile(
+          children: [
+            ListTile(
               title: Text(
-                a,
+                'None',
                 style: GoogleFonts.inter(
                   fontSize: 15,
-                  fontWeight: _alarm == a ? FontWeight.w700 : FontWeight.w400,
-                  color: _alarm == a ? AppColors.primary : AppColors.secondary,
+                  fontWeight: _alarm == 'None' ? FontWeight.w700 : FontWeight.w400,
+                  color: _alarm == 'None' ? AppColors.primary : AppColors.secondary,
                 ),
               ),
-              trailing: _alarm == a
+              trailing: _alarm == 'None'
                   ? const Icon(Icons.check, color: AppColors.accent)
                   : null,
               onTap: () {
-                setState(() => _alarm = a);
+                setState(() => _alarm = 'None');
                 Navigator.pop(context);
               },
-            );
-          }).toList(),
+            ),
+            ListTile(
+              title: Text(
+                'Pick a Time...',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  fontWeight: _alarm != 'None' ? FontWeight.w700 : FontWeight.w400,
+                  color: _alarm != 'None' ? AppColors.primary : AppColors.secondary,
+                ),
+              ),
+              trailing: _alarm != 'None'
+                  ? const Icon(Icons.check, color: AppColors.accent)
+                  : null,
+              onTap: () async {
+                Navigator.pop(context);
+                final TimeOfDay? picked = await showTimePicker(
+                  context: context,
+                  initialTime: TimeOfDay.now(),
+                  builder: (context, child) {
+                    return Theme(
+                      data: Theme.of(context).copyWith(
+                        colorScheme: const ColorScheme.light(
+                          primary: AppColors.primary,
+                          onPrimary: Colors.white,
+                          onSurface: AppColors.primary,
+                        ),
+                        textButtonTheme: TextButtonThemeData(
+                          style: TextButton.styleFrom(
+                            foregroundColor: AppColors.primary,
+                          ),
+                        ),
+                      ),
+                      child: child!,
+                    );
+                  },
+                );
+                if (picked != null) {
+                  setState(() {
+                    _alarm = picked.format(context);
+                  });
+                }
+              },
+            ),
+          ],
         ),
       ),
     );
@@ -199,7 +251,7 @@ class _AddTaskScreenState extends State<AddTaskScreen>
         padding: const EdgeInsets.symmetric(vertical: 24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          children: ['None', '5 min before', '10:00 am', '30 min before', '1 hour before'].map((r) {
+          children: ['None', '5 min before', '30 min before', '1 hour before'].map((r) {
             return ListTile(
               title: Text(
                 r,
@@ -223,6 +275,106 @@ class _AddTaskScreenState extends State<AddTaskScreen>
     );
   }
 
+  Widget _buildTopBar() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          GestureDetector(
+            onTap: () => Navigator.pop(context),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.inter(
+                fontSize: 15,
+                color: AppColors.secondary,
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+          ),
+          GestureDetector(
+            onTap: _onAdd,
+            child: Text(
+              widget.taskToEdit == null ? 'Add task' : 'Save task',
+              style: GoogleFonts.inter(
+                fontSize: 15,
+                color: AppColors.primary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTitleInput() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
+      child: TextField(
+        controller: _titleController,
+        focusNode: _focusNode,
+        maxLines: null,
+        style: GoogleFonts.inter(
+          fontSize: 26,
+          fontWeight: FontWeight.w600,
+          color: AppColors.primary,
+        ),
+        decoration: InputDecoration(
+          hintText: 'Write your task',
+          hintStyle: GoogleFonts.inter(
+            fontSize: 26,
+            fontWeight: FontWeight.w400,
+            color: AppColors.secondary.withValues(alpha: 0.45),
+          ),
+          border: InputBorder.none,
+          isDense: true,
+          contentPadding: EdgeInsets.zero,
+        ),
+        cursorColor: AppColors.accent,
+        cursorWidth: 2.5,
+      ),
+    );
+  }
+
+  Widget _buildOptionsCard() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          _buildOptionRow(
+            label: 'Alarm',
+            value: _alarm,
+            onTap: _showAlarmPicker,
+          ),
+          _buildDivider(),
+          _buildOptionRow(
+            label: 'Reminder',
+            value: _reminder,
+            onTap: _showReminderPicker,
+          ),
+          _buildDivider(),
+          _buildOptionRow(
+            label: 'Priority',
+            value: _priority,
+            onTap: _showPriorityPicker,
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
@@ -236,42 +388,8 @@ class _AddTaskScreenState extends State<AddTaskScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ── Top Bar ──────────────────────────────────────────────
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      GestureDetector(
-                        onTap: () => Navigator.pop(context),
-                        child: Text(
-                          'Cancel',
-                          style: GoogleFonts.inter(
-                            fontSize: 15,
-                            color: AppColors.secondary,
-                            fontWeight: FontWeight.w400,
-                          ),
-                        ),
-                      ),
-                      GestureDetector(
-                        onTap: _onAdd,
-                        child: Text(
-                          'Add task',
-                          style: GoogleFonts.inter(
-                            fontSize: 15,
-                            color: AppColors.primary,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                // ── Divider ───────────────────────────────────────────────
-                Divider(height: 1, color: AppColors.divider),
-
-                // ── Body ──────────────────────────────────────────────────
+                _buildTopBar(),
+                const Divider(height: 1, color: AppColors.divider),
                 Expanded(
                   child: SingleChildScrollView(
                     keyboardDismissBehavior:
@@ -279,74 +397,10 @@ class _AddTaskScreenState extends State<AddTaskScreen>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Task title input
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
-                          child: TextField(
-                            controller: _titleController,
-                            focusNode: _focusNode,
-                            maxLines: null,
-                            style: GoogleFonts.inter(
-                              fontSize: 26,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.primary,
-                            ),
-                            decoration: InputDecoration(
-                              hintText: 'Write your task',
-                              hintStyle: GoogleFonts.inter(
-                                fontSize: 26,
-                                fontWeight: FontWeight.w400,
-                                color: AppColors.secondary.withValues(alpha: 0.45),
-                              ),
-                              border: InputBorder.none,
-                              isDense: true,
-                              contentPadding: EdgeInsets.zero,
-                            ),
-                            cursorColor: AppColors.accent,
-                            cursorWidth: 2.5,
-                          ),
-                        ),
-
+                        _buildTitleInput(),
                         const SizedBox(height: 32),
-                        Divider(height: 1, color: AppColors.divider),
-
-                        // ── Options ──────────────────────────────────────
-                        Container(
-                          margin: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 16),
-                          decoration: BoxDecoration(
-                            color: AppColors.card,
-                            borderRadius: BorderRadius.circular(20),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.05),
-                                blurRadius: 10,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: Column(
-                            children: [
-                              _buildOptionRow(
-                                label: 'Alarm',
-                                value: _alarm,
-                                onTap: _showAlarmPicker,
-                              ),
-                              _buildDivider(),
-                              _buildOptionRow(
-                                label: 'Reminder',
-                                value: _reminder,
-                                onTap: _showReminderPicker,
-                              ),
-                              _buildDivider(),
-                              _buildOptionRow(
-                                label: 'Priority',
-                                value: _priority,
-                                onTap: _showPriorityPicker,
-                              ),
-                            ],
-                          ),
-                        ),
+                        const Divider(height: 1, color: AppColors.divider),
+                        _buildOptionsCard(),
                       ],
                     ),
                   ),
