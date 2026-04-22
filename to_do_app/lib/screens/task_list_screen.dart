@@ -17,15 +17,57 @@ class TaskListScreen extends StatefulWidget {
 class _TaskListScreenState extends State<TaskListScreen> {
   List<Task> tasks = List.from(sampleTasks);
 
-  final List<Map<String, dynamic>> weekDays = [
-    {'label': 'S', 'date': 7},
-    {'label': 'M', 'date': 8},
-    {'label': 'T', 'date': 9},
-    {'label': 'W', 'date': 10},
-    {'label': 'T', 'date': 11},
-    {'label': 'F', 'date': 12},
-    {'label': 'S', 'date': 13},
+  DateTime _selectedDate = DateTime.now();
+
+  static const List<String> _months = [
+    'JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN',
+    'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'
   ];
+  
+  static const List<String> _weekdays = [
+    'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'
+  ];
+
+  List<DateTime> get _currentWeek {
+    int weekday = _selectedDate.weekday;
+    DateTime monday = _selectedDate.subtract(Duration(days: weekday - 1));
+    return List.generate(7, (index) => monday.add(Duration(days: index)));
+  }
+
+  String get _formattedHeaderDate {
+    return '${_weekdays[_selectedDate.weekday - 1]}, ${_months[_selectedDate.month - 1]} ${_selectedDate.day}';
+  }
+
+  Future<void> _selectDate(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2101),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: AppColors.primary,
+              onPrimary: Colors.white,
+              onSurface: AppColors.primary,
+            ),
+            textButtonTheme: TextButtonThemeData(
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.primary,
+              ),
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null && picked != _selectedDate) {
+      setState(() {
+        _selectedDate = picked;
+      });
+    }
+  }
 
   void _toggleTask(String id) {
     setState(() {
@@ -81,7 +123,7 @@ class _TaskListScreenState extends State<TaskListScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'FRIDAY, OCT 12',
+                              _formattedHeaderDate,
                               style: GoogleFonts.inter(
                                 fontSize: 10.5,
                                 letterSpacing: 1.2,
@@ -103,24 +145,27 @@ class _TaskListScreenState extends State<TaskListScreen> {
                         ),
                         Padding(
                           padding: const EdgeInsets.only(top: 4),
-                          child: Container(
-                            width: 42,
-                            height: 42,
-                            decoration: BoxDecoration(
-                              color: AppColors.card,
-                              borderRadius: BorderRadius.circular(14),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.06),
-                                  blurRadius: 10,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
-                            ),
-                            child: const Icon(
-                              Icons.calendar_today_outlined,
-                              size: 18,
-                              color: AppColors.primary,
+                          child: GestureDetector(
+                            onTap: () => _selectDate(context),
+                            child: Container(
+                              width: 42,
+                              height: 42,
+                              decoration: BoxDecoration(
+                                color: AppColors.card,
+                                borderRadius: BorderRadius.circular(14),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.06),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                              ),
+                              child: const Icon(
+                                Icons.calendar_today_outlined,
+                                size: 18,
+                                color: AppColors.primary,
+                              ),
                             ),
                           ),
                         ),
@@ -153,7 +198,15 @@ class _TaskListScreenState extends State<TaskListScreen> {
                     const SizedBox(height: 22),
 
                     // Week Day Selector
-                    WeekDaySelector(selectedDay: 12, days: weekDays),
+                    WeekDaySelector(
+                      selectedDate: _selectedDate,
+                      currentWeek: _currentWeek,
+                      onDateSelected: (date) {
+                        setState(() {
+                          _selectedDate = date;
+                        });
+                      },
+                    ),
                   ],
                 ),
               ),

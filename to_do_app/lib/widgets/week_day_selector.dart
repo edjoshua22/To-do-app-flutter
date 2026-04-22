@@ -3,25 +3,35 @@ import '../theme/app_theme.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class WeekDaySelector extends StatelessWidget {
-  final int selectedDay;
-  final List<Map<String, dynamic>> days;
+  final DateTime selectedDate;
+  final List<DateTime> currentWeek;
+  final ValueChanged<DateTime> onDateSelected;
 
   const WeekDaySelector({
     super.key,
-    required this.selectedDay,
-    required this.days,
+    required this.selectedDate,
+    required this.currentWeek,
+    required this.onDateSelected,
   });
+
+  static const List<String> _shortWeekdays = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
   @override
   Widget build(BuildContext context) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: days.map((d) {
-        final isSelected = d['date'] == selectedDay;
-        return _DayItem(
-          label: d['label'] as String,
-          date: d['date'] as int,
-          isSelected: isSelected,
+      children: currentWeek.map((date) {
+        final isSelected = date.year == selectedDate.year &&
+            date.month == selectedDate.month &&
+            date.day == selectedDate.day;
+        return GestureDetector(
+          onTap: () => onDateSelected(date),
+          behavior: HitTestBehavior.opaque,
+          child: _DayItem(
+            label: _shortWeekdays[date.weekday - 1],
+            date: date.day,
+            isSelected: isSelected,
+          ),
         );
       }).toList(),
     );
