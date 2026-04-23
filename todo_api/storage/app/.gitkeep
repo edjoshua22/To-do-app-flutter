@@ -1,0 +1,2 @@
+# Storage directories (framework logs, cache, sessions) are git-ignored.
+# The subdirectory structure is preserved here.

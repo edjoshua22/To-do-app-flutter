@@ -6,7 +6,7 @@ import '../services/task_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/empty_state_widget.dart';
 import '../widgets/task_list_header.dart';
-import '../widgets/task_tile.dart';
+import '../widgets/dismissible_task_tile.dart';
 import 'add_task_screen.dart';
 
 class TaskListScreen extends StatefulWidget {
@@ -170,18 +170,16 @@ class _TaskListScreenState extends State<TaskListScreen> {
     if (result != null) {
       try {
         if (taskToEdit != null) {
-          final idx = _tasks.indexWhere((t) => t.id == taskToEdit.id);
-          if (idx != -1) {
-            setState(() {
-              _tasks[idx] = result;
-            });
-            await _taskService.updateTask(result);
+          // Update: replace with server-confirmed task (has real DB id)
+          final updated = await _taskService.updateTask(result);
+          if (mounted) {
+            final idx = _tasks.indexWhere((t) => t.id == taskToEdit.id);
+            if (idx != -1) setState(() => _tasks[idx] = updated);
           }
         } else {
-          setState(() {
-            _tasks.insert(0, result);
-          });
-          await _taskService.addTask(result);
+          // Add: use server-returned task so id is the real DB id
+          final created = await _taskService.addTask(result);
+          if (mounted) setState(() => _tasks.insert(0, created));
         }
       } catch (e) {
         if (mounted) {
@@ -246,70 +244,11 @@ class _TaskListScreenState extends State<TaskListScreen> {
       ),
       itemBuilder: (context, i) {
         final task = currentTasks[i];
-        return Dismissible(
-          key: Key(task.id),
-          direction: DismissDirection.endToStart,
-          background: Container(
-            alignment: Alignment.centerRight,
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            color: Colors.redAccent,
-            child: const Icon(Icons.delete_outline, color: Colors.white, size: 28),
-          ),
-          confirmDismiss: (direction) async {
-            return await showDialog<bool>(
-              context: context,
-              builder: (context) => AlertDialog(
-                backgroundColor: AppColors.card,
-                title: Text(
-                  'Delete Task',
-                  style: GoogleFonts.inter(
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.primary,
-                  ),
-                ),
-                content: Text(
-                  'Are you sure you want to delete this task?',
-                  style: GoogleFonts.inter(
-                    color: AppColors.secondary,
-                    fontSize: 14,
-                  ),
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context, false),
-                    child: Text(
-                      'Cancel',
-                      style: GoogleFonts.inter(
-                        color: AppColors.secondary,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: () => Navigator.pop(context, true),
-                    child: Text(
-                      'Delete',
-                      style: GoogleFonts.inter(
-                        color: Colors.redAccent,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-          onDismissed: (direction) {
-            _handleDelete(task);
-          },
-          child: TaskTile(
-            task: task,
-            onToggle: () => _toggleTask(task),
-            onEdit: () => _openAddTask(taskToEdit: task),
-          ),
+        return DismissibleTaskTile(
+          task: task,
+          onToggle: () => _toggleTask(task),
+          onEdit: () => _openAddTask(taskToEdit: task),
+          onDelete: () => _handleDelete(task),
         );
       },
     );
