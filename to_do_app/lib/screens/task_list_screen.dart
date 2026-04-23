@@ -69,9 +69,7 @@ class _TaskListScreenState extends State<TaskListScreen> {
               onSurface: AppColors.primary,
             ),
             textButtonTheme: TextButtonThemeData(
-              style: TextButton.styleFrom(
-                foregroundColor: AppColors.primary,
-              ),
+              style: TextButton.styleFrom(foregroundColor: AppColors.primary),
             ),
           ),
           child: child!,
@@ -98,9 +96,9 @@ class _TaskListScreenState extends State<TaskListScreen> {
         setState(() {
           task.isCompleted = originalState;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to update task')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Failed to update task')));
       }
     }
   }
@@ -142,9 +140,9 @@ class _TaskListScreenState extends State<TaskListScreen> {
         setState(() {
           _tasks.insert(index, task);
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to delete task')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Failed to delete task')));
       }
     }
   }
@@ -156,11 +154,13 @@ class _TaskListScreenState extends State<TaskListScreen> {
         pageBuilder: (context, animation, secondaryAnimation) =>
             AddTaskScreen(taskToEdit: taskToEdit, selectedDate: _selectedDate),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          final slide = Tween<Offset>(
-            begin: const Offset(0, 1),
-            end: Offset.zero,
-          ).animate(CurvedAnimation(
-              parent: animation, curve: Curves.easeOutCubic));
+          final slide =
+              Tween<Offset>(
+                begin: const Offset(0, 1),
+                end: Offset.zero,
+              ).animate(
+                CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
+              );
           return SlideTransition(position: slide, child: child);
         },
         transitionDuration: const Duration(milliseconds: 350),
@@ -170,22 +170,20 @@ class _TaskListScreenState extends State<TaskListScreen> {
     if (result != null) {
       try {
         if (taskToEdit != null) {
-          // Update: replace with server-confirmed task (has real DB id)
           final updated = await _taskService.updateTask(result);
           if (mounted) {
             final idx = _tasks.indexWhere((t) => t.id == taskToEdit.id);
             if (idx != -1) setState(() => _tasks[idx] = updated);
           }
         } else {
-          // Add: use server-returned task so id is the real DB id
           final created = await _taskService.addTask(result);
           if (mounted) setState(() => _tasks.insert(0, created));
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Failed to save task')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Failed to save task')));
         }
       }
     }
@@ -194,8 +192,8 @@ class _TaskListScreenState extends State<TaskListScreen> {
   List<Task> get _filteredTasks {
     return _tasks.where((t) {
       return t.date.year == _selectedDate.year &&
-             t.date.month == _selectedDate.month &&
-             t.date.day == _selectedDate.day;
+          t.date.month == _selectedDate.month &&
+          t.date.day == _selectedDate.day;
     }).toList();
   }
 
@@ -217,10 +215,7 @@ class _TaskListScreenState extends State<TaskListScreen> {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: _loadTasks,
-              child: const Text('Retry'),
-            ),
+            ElevatedButton(onPressed: _loadTasks, child: const Text('Retry')),
           ],
         ),
       );

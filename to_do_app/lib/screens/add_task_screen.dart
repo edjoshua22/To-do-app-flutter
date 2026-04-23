@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../models/task_model.dart';
 import '../theme/app_theme.dart';
 import '../utils/picker_utils.dart';
 import '../widgets/task_options_card.dart';
+import '../widgets/add_task_top_bar.dart';
+import '../widgets/add_task_title_input.dart';
 
 class AddTaskScreen extends StatefulWidget {
   final Task? taskToEdit;
@@ -80,72 +81,6 @@ class _AddTaskScreenState extends State<AddTaskScreen>
     Navigator.pop(context, newTask);
   }
 
-
-
-  Widget _buildTopBar() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          GestureDetector(
-            onTap: () => Navigator.pop(context),
-            child: Text(
-              'Cancel',
-              style: GoogleFonts.inter(
-                fontSize: 15,
-                color: AppColors.secondary,
-                fontWeight: FontWeight.w400,
-              ),
-            ),
-          ),
-          GestureDetector(
-            onTap: _onAdd,
-            child: Text(
-              widget.taskToEdit == null ? 'Add task' : 'Save task',
-              style: GoogleFonts.inter(
-                fontSize: 15,
-                color: AppColors.primary,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTitleInput() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
-      child: TextField(
-        controller: _titleController,
-        focusNode: _focusNode,
-        maxLines: null,
-        style: GoogleFonts.inter(
-          fontSize: 26,
-          fontWeight: FontWeight.w600,
-          color: AppColors.primary,
-        ),
-        decoration: InputDecoration(
-          hintText: 'Write your task',
-          hintStyle: GoogleFonts.inter(
-            fontSize: 26,
-            fontWeight: FontWeight.w400,
-            color: AppColors.secondary.withValues(alpha: 0.45),
-          ),
-          border: InputBorder.none,
-          isDense: true,
-          contentPadding: EdgeInsets.zero,
-        ),
-        cursorColor: AppColors.accent,
-        cursorWidth: 2.5,
-      ),
-    );
-  }
-
-
-
   @override
   Widget build(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
@@ -159,7 +94,11 @@ class _AddTaskScreenState extends State<AddTaskScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildTopBar(),
+                AddTaskTopBar(
+                  onCancel: () => Navigator.pop(context),
+                  onSave: _onAdd,
+                  isEditing: widget.taskToEdit != null,
+                ),
                 const Divider(height: 1, color: AppColors.divider),
                 Expanded(
                   child: SingleChildScrollView(
@@ -168,7 +107,10 @@ class _AddTaskScreenState extends State<AddTaskScreen>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildTitleInput(),
+                        AddTaskTitleInput(
+                          controller: _titleController,
+                          focusNode: _focusNode,
+                        ),
                         const SizedBox(height: 32),
                         const Divider(height: 1, color: AppColors.divider),
                         TaskOptionsCard(

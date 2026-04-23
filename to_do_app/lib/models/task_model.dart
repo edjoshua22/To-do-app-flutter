@@ -1,7 +1,7 @@
 class Task {
   final String id;
   final String title;
-  final String subtitle; // maps to 'description' in the API
+  final String subtitle;
   final DateTime date;
   bool isCompleted;
   bool hasAlarm;
@@ -17,7 +17,6 @@ class Task {
     this.hasPriority = false,
   });
 
-  /// Create a Task from the Laravel API JSON response.
   factory Task.fromJson(Map<String, dynamic> json) {
     return Task(
       id: json['id'].toString(),
@@ -28,7 +27,6 @@ class Task {
     );
   }
 
-  /// Convert a Task to JSON for the Laravel API.
   Map<String, dynamic> toJson() {
     return {
       'title': title,
