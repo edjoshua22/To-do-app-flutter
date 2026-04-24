@@ -1,26 +1,12 @@
 import 'package:dio/dio.dart';
 import '../models/task_model.dart';
 
-
 class ApiService {
-  
-  static const String _baseUrl = 'http://192.168.137.1:8080/api';
+  final Dio _dio;
 
-  late final Dio _dio;
+  ApiService(this._dio);
 
-  ApiService() {
-    _dio = Dio(BaseOptions(
-      baseUrl: _baseUrl,
-      connectTimeout: const Duration(seconds: 10),
-      receiveTimeout: const Duration(seconds: 10),
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-      },
-    ));
-  }
 
-  
   Future<List<Task>> getTasks() async {
     try {
       final response = await _dio.get('/todos');

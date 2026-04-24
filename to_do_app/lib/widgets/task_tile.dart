@@ -9,7 +9,13 @@ class TaskTile extends StatefulWidget {
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
 
-  const TaskTile({super.key, required this.task, required this.onToggle, this.onEdit, this.onDelete});
+  const TaskTile({
+    super.key,
+    required this.task,
+    required this.onToggle,
+    this.onEdit,
+    this.onDelete,
+  });
 
   @override
   State<TaskTile> createState() => _TaskTileState();
@@ -29,9 +35,10 @@ class _TaskTileState extends State<TaskTile>
       lowerBound: 0.0,
       upperBound: 0.1,
     );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.92).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
+    _scaleAnimation = Tween<double>(
+      begin: 1.0,
+      end: 0.92,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
 
   @override
@@ -55,16 +62,13 @@ class _TaskTileState extends State<TaskTile>
       onTap: widget.onToggle,
       child: AnimatedBuilder(
         animation: _scaleAnimation,
-        builder: (context, child) => Transform.scale(
-          scale: _scaleAnimation.value,
-          child: child,
-        ),
+        builder: (context, child) =>
+            Transform.scale(scale: _scaleAnimation.value, child: child),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // Circular Checkbox
               AnimatedContainer(
                 duration: const Duration(milliseconds: 250),
                 curve: Curves.easeInOut,
@@ -72,7 +76,9 @@ class _TaskTileState extends State<TaskTile>
                 height: 26,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: task.isCompleted ? AppColors.accent : Colors.transparent,
+                  color: task.isCompleted
+                      ? AppColors.accent
+                      : Colors.transparent,
                   border: task.isCompleted
                       ? null
                       : Border.all(color: AppColors.border, width: 1.8),
@@ -83,7 +89,6 @@ class _TaskTileState extends State<TaskTile>
               ),
               const SizedBox(width: 16),
 
-              // Title + Subtitle
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -116,7 +121,6 @@ class _TaskTileState extends State<TaskTile>
                 ),
               ),
 
-              // Right Icons / Edit
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -154,7 +158,6 @@ class _TaskTileState extends State<TaskTile>
                         ),
                       ),
                     ),
-
                 ],
               ),
             ],

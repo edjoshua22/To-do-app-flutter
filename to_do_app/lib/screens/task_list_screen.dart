@@ -8,6 +8,7 @@ import '../widgets/empty_state_widget.dart';
 import '../widgets/task_list_header.dart';
 import '../widgets/dismissible_task_tile.dart';
 import 'add_task_screen.dart';
+import '../core/di/service_locator.dart';
 
 class TaskListScreen extends StatefulWidget {
   const TaskListScreen({super.key});
@@ -17,7 +18,7 @@ class TaskListScreen extends StatefulWidget {
 }
 
 class _TaskListScreenState extends State<TaskListScreen> {
-  final TaskService _taskService = TaskService();
+  final TaskService _taskService = getIt<TaskService>();
   List<Task> _tasks = [];
   bool _isLoading = true;
   String? _errorMessage;

@@ -21,7 +21,15 @@ class _WeekDaySelectorState extends State<WeekDaySelector> {
   late DateTime _referenceMonday;
   static const int _initialPage = 10000;
 
-  static const List<String> _shortWeekdays = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+  static const List<String> _shortWeekdays = [
+    'M',
+    'T',
+    'W',
+    'T',
+    'F',
+    'S',
+    'S',
+  ];
 
   @override
   void initState() {
@@ -43,16 +51,17 @@ class _WeekDaySelectorState extends State<WeekDaySelector> {
   @override
   void didUpdateWidget(WeekDaySelector oldWidget) {
     super.didUpdateWidget(oldWidget);
-    
+
     // Check if the external selectedDate changed to a different week
     final currentMonday = _getMonday(oldWidget.selectedDate);
     final newMonday = _getMonday(widget.selectedDate);
-    
+
     if (currentMonday != newMonday) {
       final int weeksDiff = newMonday.difference(_referenceMonday).inDays ~/ 7;
       final targetPage = _initialPage + weeksDiff;
-      
-      if (_pageController.hasClients && _pageController.page?.round() != targetPage) {
+
+      if (_pageController.hasClients &&
+          _pageController.page?.round() != targetPage) {
         _pageController.animateToPage(
           targetPage,
           duration: const Duration(milliseconds: 300),
@@ -64,7 +73,9 @@ class _WeekDaySelectorState extends State<WeekDaySelector> {
 
   List<DateTime> _getWeekForPage(int pageIndex) {
     final int weekOffset = pageIndex - _initialPage;
-    final DateTime targetMonday = _referenceMonday.add(Duration(days: weekOffset * 7));
+    final DateTime targetMonday = _referenceMonday.add(
+      Duration(days: weekOffset * 7),
+    );
     return List.generate(7, (index) => targetMonday.add(Duration(days: index)));
   }
 
@@ -74,16 +85,14 @@ class _WeekDaySelectorState extends State<WeekDaySelector> {
       height: 48,
       child: PageView.builder(
         controller: _pageController,
-        onPageChanged: (index) {
-          // Optional: we can automatically select a day when swiping to a new week
-          // But usually swiping just changes the view. 
-        },
+        onPageChanged: (index) {},
         itemBuilder: (context, pageIndex) {
           final weekDates = _getWeekForPage(pageIndex);
           return Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: weekDates.map((date) {
-              final isSelected = date.year == widget.selectedDate.year &&
+              final isSelected =
+                  date.year == widget.selectedDate.year &&
                   date.month == widget.selectedDate.month &&
                   date.day == widget.selectedDate.day;
               return GestureDetector(

@@ -2,7 +2,9 @@ import '../models/task_model.dart';
 import 'api_service.dart';
 
 class TaskService {
-  final ApiService _api = ApiService();
+  final ApiService _api;
+
+  TaskService(this._api);
 
   
   Future<List<Task>> getTasks() => _api.getTasks();
